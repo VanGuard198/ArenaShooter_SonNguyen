@@ -22,22 +22,27 @@ protected:
 	
 	// Bind a delegate to our projectile OnComponentHit
 	UFUNCTION()
-	void OnProjectileHit( UPrimitiveComponent* HitComponent,AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,FVector NormalImpulse,const FHitResult& Hit);
+	void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
+	                     UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	
 	UFUNCTION()
 	void SelfDestroy();
 
 	FTimerHandle DestroyTimerHandle;
-	FTimerHandle DelayTimerHandle;
+	FTimerHandle ResetTimerHandle;
+	FLinearColor MauGocCuaStatic;
+	bool bIsMauGocCuaStaticSaved = false;
+
 	
 public:
 	virtual void Tick(float DeltaTime) override;
 	
-	// Tao bien mau
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
-	FLinearColor DoiMauThanh = FLinearColor::Red;
+	UPROPERTY(EditAnywhere, Category = "Effects")
+	float ThoiGianDoiMau = 2.0f;
+	
+	
+	FLinearColor BaseColor; // // Lưu màu gốc thực sự của Enemy
 		
 	// Khoi tao: Sphere Collision - Scene Root + Mesh + Projectile
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components")

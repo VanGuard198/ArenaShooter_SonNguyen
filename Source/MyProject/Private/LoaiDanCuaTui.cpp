@@ -51,95 +51,108 @@ void ALoaiDanCuaTui::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* 
     UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
     // Logic: Tranh vien dan ban ra va cham voi nguoi choi hoac khau sung vi cham vao Owner
-    // Tranh 2 vien dan vua ban ra va cham va dinh vao nhau loi logic physics
-    // 1. Kiểm tra va chạm cơ bản
-    if (!OtherActor || OtherActor == this || OtherActor == OwnerActor || OtherActor->IsA(ALoaiDanCuaTui::StaticClass()))
+    // Tranh 2 vien dan vua ban ra va cham va dinh vao nhau loi logic physics// 1. Kiểm tra va chạm cơ bản
+    // if (!OtherActor || OtherActor == this || OtherActor == OwnerActor || OtherActor->IsA(ALoaiDanCuaTui::StaticClass()))
+    if (OtherActor && OtherActor != this && OtherActor != OwnerActor && OtherComp)
     {
-        return;
-    }
-    {
-        USkeletalMeshComponent* SkeletalMesh = OtherActor->FindComponentByClass<USkeletalMeshComponent>();
-        UStaticMeshComponent* StaticMesh = OtherActor->FindComponentByClass<UStaticMeshComponent>();
+        // UMeshComponent* SkeletalMesh = OtherActor->FindComponentByClass<UMeshComponent>();
+        // UStaticMeshComponent* StaticMesh = OtherActor->FindComponentByClass<UStaticMeshComponent>();
+        
+        // 1. Kiểm tra xem thứ vừa chạm vào có phải là Skeletal Mesh (Enemy) không
+        USkeletalMeshComponent* SkeletalMesh = Cast<USkeletalMeshComponent>(OtherComp);
+        
+        // 2. Kiểm tra xem có phải là Static Mesh (Vật cản) không
+        UStaticMeshComponent* StaticMesh = Cast<UStaticMeshComponent>(OtherComp);
         
         if (SkeletalMesh)
         {
-            UMeshComponent* TargetMesh = Cast<UMeshComponent>(SkeletalMesh);
-
-            // Kiểm tra an toàn xem Mesh có thực sự sở hữu Material nào không
-            if (TargetMesh && TargetMesh->GetNumMaterials() > 0)
+            if (SkeletalMesh && SkeletalMesh->GetNumMaterials() > 0)
             {
-                UMaterialInstanceDynamic* DynMat = TargetMesh->CreateDynamicMaterialInstance(0);
-
-                if (DynMat)
+                // 2. Tạo DIM và ép màu đỏ
+                UMaterialInstanceDynamic* DIMEnemy = SkeletalMesh->CreateDynamicMaterialInstance(0);
                 {
-                    
-                    //  Lấy màu gốc hiện tại của Material
-                    FLinearColor OriginalColor;
-                    DynMat->GetVectorParameterValue(FName("Paint Tint"), OriginalColor);
-                    
-                    // Thực hiện logic đổi màu đỏ:
-                    DynMat->SetVectorParameterValue(TEXT("Paint Tint"), FLinearColor::Red);
-                   
-                    // Sau 1 khoang thoi gian thi quay ve mau goc
-                    FTimerHandle LocalTimerHandle;
-                    GetWorld()->GetTimerManager().SetTimer(
-                        LocalTimerHandle,
-                        [DynMat, OriginalColor]() // Capture OriginalColor vào lambda
-                        {
-                            if (DynMat)
-                            {
-                                DynMat->SetVectorParameterValue(FName("Paint Tint"), OriginalColor);
-                            }
-                        },
-                        1.0f, false);
+                    DIMEnemy->SetVectorParameterValue(TEXT("Paint Tint"), FLinearColor::Red);
+                    // UE_LOG(LogTemp, Warning, TEXT("Hit! Doi mau do thanh cong"));
                 }
+
+                // 3. Set Timer để tự phục hồi Material cho kẻ địch
+                // Chú ý: Ta truyền thẳng EnemyOriginalMat và SkeletalMesh vào Lambda
+                GetWorld()->GetTimerManager().SetTimer(
+                    ResetTimerHandle,
+                    [DIMEnemy]() 
+                    {
+                        if (DIMEnemy)
+                        {
+                            DIMEnemy->SetVectorParameterValue(TEXT("Paint Tint"), FLinearColor::White);
+                        }
+                    },
+                    ThoiGianDoiMau, false);
             }
         }
+        
         else if (StaticMesh)
         {
-            UStaticMeshComponent* WallMesh = Cast<UStaticMeshComponent>(StaticMesh);
-            if (!WallMesh) return;
-            
             // Kiểm tra xem Mesh có Material nào không trước khi truy cập index 0
-            if (WallMesh->GetNumMaterials() > 0)
+            if (StaticMesh->GetNumMaterials() > 0)
             {
-                UMaterialInstanceDynamic* DIMStatic = WallMesh->CreateDynamicMaterialInstance(0);
-
+                UMaterialInstanceDynamic* DIMStatic = StaticMesh->CreateDynamicMaterialInstance(0);
+                // if (!bIsMauGocCuaStaticSaved)
+                // {
+                //     DIMStatic->GetVectorParameterValue(FName("Base Color"), MauGocCuaStatic);
+                //     bIsMauGocCuaStaticSaved = true;
+                //     UE_LOG(LogTemp, Log, TEXT("Da luu mau goc: %s"), *MauGocCuaStatic.ToString());
+                // }
+                
+                if (DIMStatic->Parent)
+                {
+                    DIMStatic->Parent->GetVectorParameterValue(FName("Base Color"), MauGocCuaStatic);
+                }
+                else 
+                {
+                    // Phòng hờ nếu không có Parent, thì mới lấy màu hiện tại
+                    DIMStatic->GetVectorParameterValue(FName("Base Color"), MauGocCuaStatic);
+                }
+                
+                // Thực hiện logic đổi màu:
+                DIMStatic->SetVectorParameterValue(TEXT("Base Color"), FLinearColor::Blue);
+                UE_LOG(LogTemp, Warning, TEXT("Hit! Doi mau xanh thanh cong"));
+                
                 if (DIMStatic)
                 {
-                    
-                    //  Lấy màu gốc hiện tại của Material
-                    FLinearColor OriginalColor;
-                    DIMStatic->GetVectorParameterValue(FName("Base Color"), OriginalColor);
-                    
-                    
-                    // Thực hiện logic của bạn ở đây, ví dụ đổi màu đỏ:
-                    DIMStatic->SetVectorParameterValue(TEXT("Base Color"), FLinearColor::Blue);
-                    
-                    // Logic DIM doi mau khoang ... sau do quay ve mau trang
-                    FTimerHandle LocalTimerHandle;
+                    GetWorld()->GetTimerManager().ClearTimer(ResetTimerHandle);
                     GetWorld()->GetTimerManager().SetTimer(
-                        LocalTimerHandle,
-                        [DIMStatic, OriginalColor]() // Capture OriginalColor vào lambda
+                        ResetTimerHandle,
+                        [this, DIMStatic]() // Capture OriginalColor vào lambda
                         {
                             if (DIMStatic)
                             {
-                                DIMStatic->SetVectorParameterValue(FName("Base Color"), OriginalColor);
+                                DIMStatic->SetVectorParameterValue(FName("Base Color"),MauGocCuaStatic);
                             }
                         },
-                        1.0f, false);
+                        ThoiGianDoiMau, false);
                 }
             }
         }
+        
+        // 4. Thay vì Destroy, hãy Ẩn viên đạn và tắt va chạm để nó giống như đã biến mất
+        CollisionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        ThayMeshVienDanVaoDay->SetVisibility(false);
+
+        // Bây giờ bạn có thể Destroy nó an toàn sau khi thời gian đổi màu kết thúc 
+        // (Cộng thêm 0.1s để chắc chắn timer đổi màu chạy xong)
+        GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, 
+            this, &ALoaiDanCuaTui::SelfDestroy, 
+            ThoiGianDoiMau + 0.1f, false);
     }
     
     // Destroy bullet after short delay
     if (GetWorld())
     {
-        GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &ALoaiDanCuaTui::SelfDestroy, 0.1f, false);
+        GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &ALoaiDanCuaTui::SelfDestroy, 2.0f, false);
     }
 }
-    
+
+
 void ALoaiDanCuaTui::SelfDestroy()
 {
     Destroy();
@@ -150,3 +163,5 @@ void ALoaiDanCuaTui::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 }
+
+
